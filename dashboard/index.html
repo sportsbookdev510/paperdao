@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>paperdao dashboard</title>
+    <meta
+      name="description"
+      content="paperdao treasury value, nav per $pulp, $pulp price and paper held, read straight from Robinhood Chain and HyperEVM."
+    />
+    <link rel="canonical" href="https://paperdao.vercel.app/dashboard/" />
+    <meta
+      name="theme-color"
+      content="#F4ECD8"
+      media="(prefers-color-scheme: light)"
+    />
+    <meta
+      name="theme-color"
+      content="#1D1B18"
+      media="(prefers-color-scheme: dark)"
+    />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="paperdao" />
+    <meta property="og:url" content="https://paperdao.vercel.app/dashboard/" />
+    <meta property="og:title" content="paperdao dashboard" />
+    <meta
+      property="og:description"
+      content="treasury value, nav per $pulp, $pulp price and paper held, read straight from the chains."
+    />
+    <meta property="og:image" content="https://paperdao.vercel.app/og.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@paperdao_xyz" />
+    <meta name="twitter:image" content="https://paperdao.vercel.app/og.jpg" />
+    <script>
+      try {
+        var t = localStorage.getItem("paperdao-theme");
+        if (t === "light" || t === "dark")
+          document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IM+Fell+English:ital@0;1&display=swap"
+    />
+    <script defer src="https://cdn.vercel-insights.com/v1/script.js"></script>
+    <link rel="stylesheet" href="/assets/site.css" />
+    <style>
+      /* dashboard: summary first (four headline numbers), then the price chart, then the detail cards. */
+      :root {
+        --c1: #8b2020;
+        --c2: #3e5b45;
+        --c3: #a9782a;
+        --c4: #4f6475;
+        --c5: #8a7f6e; /* series colours */
+        --up: #3e5b45;
+        --down: #8b2020;
+        --veil: rgba(244, 236, 216, 0.55);
+      }
+      @media (prefers-color-scheme: dark) {
+        :root:not([data-theme="light"]) {
+          --c1: #ce6a5e;
+          --c2: #8db396;
+          --c3: #d3a55a;
+          --c4: #8ba3b8;
+          --c5: #9c9280;
+          --up: #8db396;
+          --down: #ce6a5e;
+          --veil: rgba(29, 27, 24, 0.55);
+        }
+      }
+      :root[data-theme="dark"] {
+        --c1: #ce6a5e;
+        --c2: #8db396;
+        --c3: #d3a55a;
+        --c4: #8ba3b8;
+        --c5: #9c9280;
+        --up: #8db396;
+        --down: #ce6a5e;
+        --veil: rgba(29, 27, 24, 0.55);
+      }
+
+      .crumb {
+        font-family: var(--fell);
+        font-style: italic;
+        color: var(--ink-2);
+        font-size: 1.1rem;
+        margin-left: 14px;
+        margin-right: auto;
+      }
+      .dash {
+        display: grid;
+        gap: clamp(20px, 2.4vw, 28px);
+        padding-block: clamp(36px, 5vw, 64px) clamp(64px, 8vw, 96px);
+      }
+      .dash-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: end;
+        justify-content: space-between;
+        gap: 12px 32px;
+      }
+      .dash-head h1 {
+        font-size: var(--t-h2);
+        letter-spacing: -0.038em;
+        line-height: 1.04;
+      }
+      .status {
+        font-size: var(--t-small);
+        color: var(--ink-2);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .live {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--up);
+        box-shadow: 0 0 0 4px color-mix(in srgb, var(--up) 22%, transparent);
+        display: inline-block;
+        flex: none;
+      }
+      .live.off {
+        background: var(--ink-3);
+        box-shadow: none;
+      }
+      .addrs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        font-size: var(--t-micro);
+      }
+      .addrs:empty {
+        display: none;
+      }
+      .addrs a {
+        color: var(--ink-2);
+        text-underline-offset: 3px;
+      }
+
+      .card {
+        border: 1px solid var(--rule);
+        border-radius: var(--r-card);
+        background: color-mix(in srgb, var(--paper-2) 84%, transparent);
+        backdrop-filter: blur(2px);
+        padding: clamp(18px, 2.4vw, 28px);
+        min-width: 0;
+        display: grid;
+        gap: 18px;
+        align-content: start;
+      }
+      .card h2 {
+        font-size: var(--t-h3);
+        letter-spacing: -0.02em;
+      }
+      .card-head {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .card-head p {
+        font-size: var(--t-small);
+        color: var(--ink-3);
+        margin-top: 2px;
+      }
+
+      .kpis {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0;
+        border: 1px solid var(--rule);
+        border-radius: var(--r-card);
+        background: color-mix(in srgb, var(--paper-2) 84%, transparent);
+        backdrop-filter: blur(2px);
+        overflow: hidden;
+      }
+      .kpi {
+        padding: clamp(18px, 2.4vw, 28px);
+        display: grid;
+        gap: 6px;
+        align-content: start;
+        min-width: 0;
+      }
+      .kpi + .kpi {
+        border-left: 1px solid var(--rule);
+      }
+      .kpi .k {
+        font-size: var(--t-small);
+        color: var(--ink-2);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .kpi .v {
+        font-size: clamp(1.9rem, 3.6vw, 2.9rem);
+        letter-spacing: -0.045em;
+        line-height: 1.05;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+      }
+      .kpi.lead .v {
+        color: var(--oxblood);
+      }
+      .kpi .h {
+        font-size: var(--t-micro);
+        color: var(--ink-3);
+      }
+      .minis {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0 24px;
+        padding-inline: 4px;
+      }
+      .mini {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        gap: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--rule);
+        font-size: 0.95rem;
+      }
+      .mini span {
+        color: var(--ink-2);
+      }
+      .mini b {
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+      }
+      @media (max-width: 900px) {
+        .kpis {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .kpi:nth-child(3) {
+          border-left: 0;
+        }
+        .kpi:nth-child(n + 3) {
+          border-top: 1px solid var(--rule);
+        }
+        .minis {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 480px) {
+        .kpis {
+          grid-template-columns: 1fr;
+        }
+        .kpi + .kpi {
+          border-left: 0;
+          border-top: 1px solid var(--rule);
+        }
+        .minis {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .chip {
+        font-size: var(--t-micro);
+        border: 1px solid var(--rule);
+        border-radius: 999px;
+        padding: 2px 9px;
+        color: var(--ink-2);
+        white-space: nowrap;
+      }
+      .chip.up {
+        color: var(--up);
+        border-color: var(--up);
+      }
+      .chip.down {
+        color: var(--down);
+        border-color: var(--down);
+      }
+
+      .seg {
+        display: inline-flex;
+        border: 1px solid var(--rule);
+        border-radius: 999px;
+        padding: 3px;
+        gap: 2px;
+      }
+      .seg button {
+        font: 500 var(--t-micro) var(--sans);
+        color: var(--ink-2);
+        background: transparent;
+        border: 0;
+        border-radius: 999px;
+        padding: 6px 12px;
+        cursor: pointer;
+      }
+      .seg button[aria-pressed="true"] {
+        background: var(--ink);
+        color: var(--paper);
+      }
+
+      .chart-wrap {
+        position: relative;
+      }
+      #chart {
+        display: block;
+        width: 100%;
+        height: auto;
+        touch-action: pan-y;
+      }
+      #chart .grid {
+        stroke: var(--rule);
+        stroke-width: 1;
+        stroke-dasharray: 2 4;
+      }
+      #chart .ax {
+        fill: var(--ink-3);
+        font: 12px var(--sans);
+        font-variant-numeric: tabular-nums;
+      }
+      #chart .pline {
+        fill: none;
+        stroke: var(--c1);
+        stroke-width: 2.2;
+        stroke-linejoin: round;
+      }
+      #chart .pdot {
+        fill: var(--c1);
+        stroke: var(--paper-2);
+        stroke-width: 2;
+      }
+      #chart .navline {
+        stroke: var(--c2);
+        stroke-width: 1.5;
+        stroke-dasharray: 6 5;
+      }
+      #chart .navlab {
+        fill: var(--c2);
+        font: 500 12px var(--sans);
+      }
+      #chart .hx {
+        stroke: var(--ink-3);
+        stroke-width: 1;
+      }
+      #chart.ghost .pline {
+        stroke: var(--ink-3);
+        opacity: 0.4;
+        stroke-dasharray: 5 6;
+      }
+      #chart.ghost path[fill] {
+        opacity: 0.35;
+      }
+      #chart.ghost .pdot {
+        fill: var(--ink-3);
+        opacity: 0.5;
+      }
+      .none,
+      .kpi.lead .v.none {
+        color: var(--ink-3);
+      }
+      .tip {
+        position: absolute;
+        transform: translate(-50%, calc(-100% - 14px));
+        background: var(--ink);
+        color: var(--paper);
+        border-radius: 10px;
+        padding: 8px 12px;
+        display: grid;
+        gap: 2px;
+        font-size: var(--t-micro);
+        pointer-events: none;
+        white-space: nowrap;
+      }
+      .tip b {
+        font-size: 0.95rem;
+        font-weight: 600;
+        font-variant-numeric: tabular-nums;
+      }
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 20px;
+        font-size: var(--t-micro);
+        color: var(--ink-2);
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .legend i {
+        width: 16px;
+        height: 0;
+        border-top: 2.2px solid var(--c1);
+        display: inline-block;
+      }
+      .legend i.nav {
+        border-top: 1.5px dashed var(--c2);
+      }
+
+      .row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: clamp(20px, 2.4vw, 28px);
+      }
+      @media (max-width: 860px) {
+        .row {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .mixbar {
+        display: flex;
+        gap: 2px;
+        height: 16px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: var(--rule-2);
+      }
+      .mixbar span {
+        height: 100%;
+        transition: opacity 0.15s ease;
+      }
+      .mixbar span.dim,
+      .rows li.dim {
+        opacity: 0.35;
+      }
+      .mixbar .empty {
+        flex: 1;
+      }
+      .rows {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .rows li {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto 4.2em;
+        gap: 12px;
+        align-items: center;
+        padding: 11px 0;
+        border-top: 1px solid var(--rule);
+        font-size: 0.95rem;
+        transition: opacity 0.15s ease;
+      }
+      .rows li:first-child {
+        border-top: 0;
+      }
+      .rows .lab {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--ink-2);
+        min-width: 0;
+      }
+      .rows .val {
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+      .rows .pc {
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+        color: var(--ink-3);
+        font-size: var(--t-micro);
+      }
+      .rows li.off .val {
+        color: var(--ink-3);
+        font-size: var(--t-micro);
+      }
+      .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        display: inline-block;
+        flex: none;
+      }
+
+      .big3 {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 16px;
+      }
+      .big3 div {
+        display: grid;
+        gap: 4px;
+        min-width: 0;
+      }
+      .big3 b {
+        font-size: clamp(1.4rem, 2.4vw, 1.85rem);
+        letter-spacing: -0.035em;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+      }
+      .big3 span {
+        font-size: var(--t-micro);
+        color: var(--ink-2);
+      }
+      @media (max-width: 480px) {
+        .big3 {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .lp {
+        display: grid;
+        gap: 10px;
+        padding-top: 16px;
+        border-top: 1px solid var(--rule);
+      }
+      .lp-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: var(--t-small);
+      }
+      .lp-top b {
+        font-weight: 500;
+      }
+      .lp-track {
+        position: relative;
+        height: 12px;
+        border-radius: 999px;
+        background: var(--rule-2);
+        overflow: visible;
+      }
+      .lp-fill {
+        position: absolute;
+        inset-block: 0;
+        left: 0;
+        border-radius: 999px;
+        background: var(--oxblood);
+        transition: width 0.6s ease;
+      }
+      .lp-mark {
+        position: absolute;
+        top: -5px;
+        bottom: -5px;
+        width: 1.5px;
+        background: var(--ink-2);
+      }
+      .lp-labels {
+        position: relative;
+        height: 16px;
+        font-size: var(--t-micro);
+        color: var(--ink-3);
+      }
+      .lp-labels span {
+        position: absolute;
+        transform: translateX(-50%);
+        white-space: nowrap;
+      }
+      .lp-note {
+        font-size: var(--t-micro);
+        color: var(--ink-2);
+      }
+
+      .burnbar {
+        height: 12px;
+        border-radius: 999px;
+        background: var(--rule-2);
+        overflow: hidden;
+      }
+      .burnbar span {
+        display: block;
+        height: 100%;
+        background: var(--oxblood);
+        border-radius: 999px;
+        transition: width 0.6s ease;
+      }
+      .kv {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+      .kv li {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 11px 0;
+        border-top: 1px solid var(--rule);
+        font-size: 0.95rem;
+      }
+      .kv li:first-child {
+        border-top: 0;
+      }
+      .kv span {
+        color: var(--ink-2);
+      }
+      .kv b {
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+        text-align: right;
+      }
+
+      .mine-field {
+        display: grid;
+        gap: 8px;
+      }
+      .mine-field label {
+        font-size: var(--t-small);
+        color: var(--ink-2);
+      }
+      .mine-field input {
+        font: 500 1.1rem var(--sans);
+        font-variant-numeric: tabular-nums;
+        color: var(--ink);
+        background: var(--paper);
+        border: 1px solid var(--rule);
+        border-radius: 10px;
+        padding: 12px 14px;
+        width: 100%;
+      }
+      .mine-field input:focus {
+        outline: 2px solid var(--oxblood);
+        outline-offset: 1px;
+      }
+      .mine-note {
+        font-size: var(--t-micro);
+        color: var(--ink-3);
+      }
+      .mine-out {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+      .mine-out div {
+        display: grid;
+        gap: 3px;
+      }
+      .mine-out b {
+        font-size: 1.35rem;
+        letter-spacing: -0.03em;
+        font-weight: 500;
+        font-variant-numeric: tabular-nums;
+      }
+      .mine-out span {
+        font-size: var(--t-micro);
+        color: var(--ink-2);
+      }
+
+      /* a faint seal behind everything, like the hero's, turning very slowly */
+      .backdrop {
+        position: fixed;
+        z-index: -1;
+        pointer-events: none;
+        width: min(1100px, 120vmax);
+        aspect-ratio: 1;
+        right: max(-38vmax, -460px);
+        top: 6vh;
+        opacity: 0.3;
+        animation: turn 600s linear infinite;
+      }
+      .backdrop canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+      }
+      @keyframes turn {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .backdrop {
+          animation: none;
+        }
+      }
+      @media (max-width: 700px) {
+        .backdrop {
+          width: 150vw;
+          right: -75vw;
+          top: 20vh;
+          opacity: 0.26;
+        }
+      }
+
+      /* gate: until launch the dashboard sits blurred behind this panel */
+      .gate {
+        display: none;
+      }
+      body.gated .dash {
+        filter: blur(7px);
+        pointer-events: none;
+        user-select: none;
+      }
+      body.gated .gate {
+        display: grid;
+        position: fixed;
+        inset: 0;
+        z-index: 15;
+        place-items: center;
+        padding: var(--gutter);
+        background: var(--veil);
+      }
+      .gate-card {
+        max-width: 30rem;
+        width: 100%;
+        border: 1px solid var(--rule);
+        border-radius: var(--r-card);
+        background-color: var(--paper);
+        background-image: var(--grain);
+        padding: clamp(24px, 4vw, 40px);
+        display: grid;
+        gap: 16px;
+        box-shadow: 0 30px 80px -30px rgba(43, 41, 36, 0.35);
+      }
+      .gate-card h2 {
+        font-size: clamp(1.7rem, 3.4vw, 2.2rem);
+        letter-spacing: -0.04em;
+        line-height: 1.05;
+      }
+      .gate-card p {
+        color: var(--ink-2);
+      }
+      .gate-card .when {
+        font-family: var(--fell);
+        font-style: italic;
+        font-size: 1.15rem;
+        color: var(--oxblood);
+      }
+      .gate-card .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 6px;
+      }
+      @media (max-width: 560px) {
+        .crumb {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="backdrop" aria-hidden="true">
+      <canvas id="backdrop"></canvas>
+    </div>
+
+    <header class="top">
+      <div class="wrap bar">
+        <a class="mark" href="/" aria-label="paperdao home"
+          >paperdao<i aria-hidden="true"></i
+        ></a>
+        <span class="crumb">dashboard</span>
+        <div class="bar-end">
+          <button
+            class="theme"
+            id="theme"
+            type="button"
+            aria-label="switch to dark mode"
+          >
+            <svg
+              id="theme-moon"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z" />
+            </svg>
+            <svg
+              id="theme-sun"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.7"
+              stroke-linecap="round"
+              aria-hidden="true"
+              hidden
+            >
+              <circle cx="12" cy="12" r="4" />
+              <path
+                d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"
+              />
+            </svg>
+          </button>
+          <a class="btn btn-line btn-sm bar-lock" href="/lock/">earn $pulp</a>
+          <a
+            class="btn btn-ox btn-sm"
+            href="https://daos.world"
+            target="_blank"
+            rel="noopener"
+            >join the raise</a
+          >
+        </div>
+      </div>
+    </header>
+
+    <main class="wrap dash" aria-hidden="false">
+      <div class="dash-head">
+        <div style="display: grid; gap: 12px">
+          <h1>treasury</h1>
+          <p class="status" id="status">
+            <i class="live off"></i>reading the chains…
+          </p>
+        </div>
+        <div class="addrs" id="addrs"></div>
+      </div>
+
+      <section class="kpis" aria-label="headline numbers">
+        <div class="kpi lead">
+          <span class="k">treasury value</span
+          ><span class="v" id="k-tvl">—</span
+          ><span class="h">everything the dao holds, in usd</span>
+        </div>
+        <div class="kpi">
+          <span class="k">nav per $pulp</span><span class="v" id="k-nav">—</span
+          ><span class="h">treasury value ÷ $pulp in circulation</span>
+        </div>
+        <div class="kpi">
+          <span class="k">$pulp price</span><span class="v" id="k-price">—</span
+          ><span class="h">from the uniswap pool</span>
+        </div>
+        <div class="kpi">
+          <span class="k"
+            >price vs nav <span class="chip" id="k-prem-chip">—</span></span
+          ><span class="v" id="k-prem">—</span
+          ><span class="h">premium or discount to nav</span>
+        </div>
+      </section>
+      <div class="minis">
+        <div class="mini"><span>market cap</span><b id="k-mcap">—</b></div>
+        <div class="mini">
+          <span>$pulp in circulation</span><b id="k-circ">—</b>
+        </div>
+        <div class="mini"><span>$pulp burned</span><b id="k-burned">—</b></div>
+        <div class="mini"><span>pool liquidity</span><b id="k-pool">—</b></div>
+      </div>
+
+      <section class="card" aria-label="$pulp price against nav">
+        <div class="card-head">
+          <div>
+            <h2>$pulp price against nav</h2>
+            <p>
+              above the line, $pulp trades at a premium to what the treasury
+              holds.
+            </p>
+          </div>
+          <div class="seg" role="group" aria-label="time range">
+            <button type="button" data-range="24" aria-pressed="false">
+              24h
+            </button>
+            <button type="button" data-range="168" aria-pressed="true">
+              7d
+            </button>
+            <button type="button" data-range="720" aria-pressed="false">
+              30d
+            </button>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <svg
+            id="chart"
+            viewBox="0 0 800 280"
+            role="img"
+            aria-label="$pulp price over time with the current nav per $pulp as a reference line"
+          ></svg>
+          <div class="tip" id="tip" hidden></div>
+        </div>
+        <div class="legend">
+          <span><i></i>$pulp price</span
+          ><span><i class="nav"></i>nav per $pulp now</span>
+        </div>
+      </section>
+
+      <div class="row">
+        <section class="card" aria-label="what the treasury holds">
+          <div class="card-head">
+            <div>
+              <h2>what the treasury holds</h2>
+              <p>hover a row to find it in the bar.</p>
+            </div>
+            <div class="seg" role="group" aria-label="group by">
+              <button type="button" data-view="chain" aria-pressed="true">
+                by chain
+              </button>
+              <button type="button" data-view="asset" aria-pressed="false">
+                by asset
+              </button>
+            </div>
+          </div>
+          <div class="mixbar" id="mix-bar"></div>
+          <ul class="rows" id="mix-rows"></ul>
+        </section>
+
+        <section class="card" aria-label="paper">
+          <div class="card-head">
+            <div>
+              <h2>paper</h2>
+              <p>minted on papertrade and staked for usdc.</p>
+            </div>
+          </div>
+          <div class="big3">
+            <div><b id="p-total">—</b><span>paper held</span></div>
+            <div><b id="p-per">—</b><span>paper per 1m $pulp</span></div>
+            <div><b id="p-share">—</b><span>of all paper</span></div>
+          </div>
+          <div class="lp">
+            <div class="lp-top">
+              <span>papertrade lp</span><b id="lp-val">—</b>
+            </div>
+            <div class="lp-track" aria-hidden="true">
+              <span class="lp-fill" id="lp-fill"></span>
+              <span class="lp-mark" style="left: 33.33%"></span>
+              <span class="lp-mark" style="left: 83.33%"></span>
+            </div>
+            <div class="lp-labels" aria-hidden="true">
+              <span style="left: 0; transform: none">$0</span
+              ><span style="left: 33.33%">$2m flat ends</span
+              ><span style="left: 83.33%">$5m sweep</span>
+            </div>
+            <p class="lp-note" id="lp-note"></p>
+          </div>
+        </section>
+      </div>
+
+      <div class="row">
+        <section class="card" aria-label="$pulp supply">
+          <div class="card-head">
+            <div>
+              <h2>$pulp supply</h2>
+              <p>lockers earn the rewards.</p>
+            </div>
+          </div>
+          <div class="burnbar" aria-hidden="true">
+            <span id="s-burn-fill"></span>
+          </div>
+          <ul class="kv">
+            <li><span>starting supply</span><b id="s-initial">—</b></li>
+            <li><span>burned</span><b id="s-burned">—</b></li>
+            <li><span>in circulation</span><b id="s-circ">—</b></li>
+          </ul>
+        </section>
+
+        <section class="card" aria-label="your $pulp">
+          <div class="card-head">
+            <div>
+              <h2>your $pulp</h2>
+              <p>what a holding is worth today.</p>
+            </div>
+          </div>
+          <div class="mine-field">
+            <label for="mine">$pulp amount or wallet address</label>
+            <input
+              id="mine"
+              type="text"
+              value="1,000,000"
+              autocomplete="off"
+              spellcheck="false"
+              inputmode="text"
+            />
+            <span class="mine-note" id="mine-note"
+              >or paste a wallet address to look it up.</span
+            >
+          </div>
+          <div class="mine-out">
+            <div><b id="m-market">—</b><span>at market price</span></div>
+            <div><b id="m-nav">—</b><span>at nav</span></div>
+            <div><b id="m-share">—</b><span>share of the treasury</span></div>
+            <div>
+              <b id="m-paper">—</b><span>paper it redeems for today</span>
+            </div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <footer>
+      <div class="wrap">
+        <div class="row">
+          <a class="mark" href="/" style="font-size: 1.05rem"
+            >paperdao<i aria-hidden="true"></i
+          ></a>
+          <nav aria-label="links">
+            <a href="https://x.com/paperdao_xyz" target="_blank" rel="noopener"
+              >x</a
+            >
+            <a href="#" aria-disabled="true">telegram</a>
+            <a href="https://daos.world" target="_blank" rel="noopener"
+              >daos.world</a
+            >
+            <a href="/dashboard/">dashboard</a>
+            <a href="/lock/">earn</a>
+            <a href="https://papertrade.xyz" target="_blank" rel="noopener"
+              >papertrade</a
+            >
+            <span>contract: published at the raise</span>
+          </nav>
+        </div>
+        <p>
+          paperdao is an independent community treasury. it isn't affiliated
+          with, endorsed by or operated by papertrade or daos.world. nothing
+          here is financial advice or an offer of securities. $pulp may lose all
+          of its value. figures on this page describe papertrade's published
+          mechanics, not expected returns.
+        </p>
+      </div>
+    </footer>
+
+    <div
+      class="gate"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="gate-title"
+    >
+      <div class="gate-card">
+        <p class="when">opens at launch, 10.08.2026</p>
+        <h2 id="gate-title">the dashboard opens when trading starts.</h2>
+        <p>
+          treasury value, nav per $pulp, $pulp price and paper held, read
+          straight from robinhood chain and hyperevm.
+        </p>
+        <div class="actions">
+          <a class="btn btn-ox" href="/">back to paperdao</a>
+          <a
+            class="btn btn-line"
+            href="https://x.com/paperdao_xyz"
+            target="_blank"
+            rel="noopener"
+            >follow @paperdao_xyz</a
+          >
+        </div>
+      </div>
+    </div>
+
+    <script src="/assets/guilloche.js"></script>
+    <script src="/dashboard/config.js"></script>
+    <script src="/dashboard/dashboard.js"></script>
+    <script src="/assets/theme.js" defer></script>
+  </body>
+</html>
